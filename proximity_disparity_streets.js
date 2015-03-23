@@ -72,7 +72,7 @@ function drawWater(water,svg,fill,stroke,waterClass){
 		.style("fill","none")
 	   // .style("opacity",.1)
 		.style("stroke","#ddd")
-		.style("stroke-width",2)
+		.style("stroke-width",1)
 	.on("mouseover", function(d){
 		tip.html( d.properties.FULLNAME)
 		tip.show()
@@ -260,12 +260,13 @@ function renderBoroughs(data,svg,width,height){
 function formatMovement(data){
 	var colorIndex = 0
 	var colorArray =["#5BB076","#6ADE3F","#55992F","#A8DC5C","#60E189","#B7DB94","#5F804C"]
+
 	for(var i in data){
 		colorIndex = colorIndex+1
 		var placeInColorArray = colorIndex%(colorArray.length)
 		var color = colorArray[placeInColorArray]
 		drawMovement(data[i],i,color,colorIndex)
-		if(colorIndex > 500){
+		if(colorIndex > 2000){
 			return
 		}
 	}
@@ -274,29 +275,34 @@ function drawMovement(data,id,color,colorIndex){
 	var projection = d3.geo.mercator().scale(global.scale).center(global.center)
 	var moveMap = d3.select("#svg-1 svg g")
 	var line = d3.svg.line()
-	.interpolate("basis")
+	.interpolate("cardinal")
 	.x(function(d){return projection([d[1],d[0]])[0]})
 	.y(function(d){return projection([d[1],d[0]])[1]})
-	
+//	var color = d3.interpolateLab("#008000", "#c83a22");
 	var path = moveMap.append("path")
 	.attr("class","line")
 	.attr("d", line(data))
 	.attr("fill","none")
 	.attr("stroke", color)
 	.attr("stroke-width",2)
-	.attr("opacity",.3)
+	.attr("opacity",.8)
 	//.style("stroke-dasharray", ("20, 3"))
 	
 	var totalLength = path.node().getTotalLength();
-	
-	path.attr("stroke-dasharray", totalLength + " " + totalLength)
+	if(totalLength>100){
+	var dashLength = 50	
+	}
+	else{
+	var dashLength = totalLength/20
+	}
+	path.attr("stroke-dasharray",80 + " " + totalLength)
 		.attr("stroke-dashoffset", totalLength)
 		.transition()
 		//.delay(colorIndex*500)
-	    .duration(totalLength*10)
+	    .duration(totalLength*5)
 	    .ease("linear")
-	    .attr("stroke-dashoffset", 0);
-		
+	    .attr("stroke-dashoffset", 0)
+		.attr("opacity",0.3)
 	
 //	moveMap.selectAll("circle")
 //	.data(data)
