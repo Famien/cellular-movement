@@ -42,50 +42,22 @@
 	<div id = "header">
 			<div id = "title"></div>
 			<div id = "subtitle">
-				Inequality fractures the city, this map draws boundaries formed by income disparity inside current city
-				<a href="#" id="example-show" class="showLink" onclick="showHide('example');return false;">... more</a></p>
-    			<div id="example" class="more">
-					<p>
-					Lines are constantly being drawn across our cities, visible boundaries in the form of fences and highways, 
-					as well as invisible ones formed by discrepancies in the educational,
-					financial and demographic makeup of our city. 
-					This map draws lines between census block groups with comparable populations whose percentile differences in median household income is more than 25%.
-					
-					This map focuses on the differences that fracture the city rather than where poverty or wealth is concentrated. But it is worth noting that in a city that is dynamic in so many other ways, large areas of poverty and wealth remain isolated. Where poverty and wealth do intersect, at these drawn lines, are places where we are most likely to see inequality.
-					
-					</p>
-					<p>
-					On the other hand, these intersections also point to potentials for growth 
-					or the contentious process of gentrification.
-					
-					The future growth of a place, similar to humans, is often dependent on the wellbeing and qualities its  larger environment and its closest neighbors.
-					
-					For this reason, we show an additional bar graph of adjacent median incomes 
-					when a given block group is highlighted.
-					
-					We represent the median household income of the highlighted block group along with 
-					all its adjacent block groups in order of income to show the context of each area's income.
-					</p>
-					<p><a href="#" id="example-hide" class="hideLink" onclick="showHide('example');return false;">... less</a></p>
-				</div>
-				<div id="topDifferences">	
-					<p class="showTop">Highlight top differences</p>
-					<p class="hideTop">Hide top differences</p>
-				</div>
+				TIME:::
 			</div>
 			<div id="current-details"></div>
 			<div id = "svg-2"></div>
+			
 	</div>
 	
 	<script type="text/javascript" charset="utf-8">
 	var city ="boston"	
-	var center = [-71.062,42.356]
+	var center = [-71.063,42.357]
 	var minDifference = 25
 	var scale=4000000
-	var water = city+"/"+city+"_streets.geojson"
-	var csv1 = city+"/"+city+"_income.csv"
+	var water = city+"/"+city+"_buildings.geojson"
+	var csv = city+"/"+"gender_weekday_minutes_segments.csv"
 	var geojson1 = city+"/"+city+"_bg.geojson"
-	var overlap = city+"/"+city+"_test6.json"
+	var overlap = city+"/boston_gender_minutes.json"
 	var neighbors = city+"/"+city+"_geoid_neighbor_hash.json"
 	var neighborhoods = city+"/"+city+"_neighborhoods.json"
 	</script>

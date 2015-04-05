@@ -10,7 +10,7 @@ var config = {
 }
 var global = {
 	usMapWidth:1500,
-	usMapHeight:600,
+	usMapHeight:1200,
 	max:200000,
 	maxIncome:250000,
 	gradientStart:"#fff",
@@ -22,12 +22,13 @@ var global = {
 	translateScale:1,
 	mapFillColor:null,
 	minDifference:15,
-	city:city
+	city:city,
+	data:null
 }
 $(function() {
 	queue()
 		.defer(d3.json, geojson1)
-		.defer(d3.csv, csv1)
+		.defer(d3.csv, csv)
 		.defer(d3.json,overlap)
 		.defer(d3.json,neighbors)
 		.defer(d3.json,neighborhoods)
@@ -36,7 +37,7 @@ $(function() {
 
 $("#topDifferences .hideTop").hide()
 
-function dataDidLoad(error, geojson1, city1, overlap, neighbors,neighborhoodDictionary) {
+function dataDidLoad(error, geojson1, csv, overlap, neighbors,neighborhoodDictionary) {
 	d3.select("#title").html(toTitleCase(city.replace("_"," ")))
 	var subtitle = d3.select("#subtitle").html()
 	subtitle = subtitle.replace("current city", toTitleCase(city))
@@ -47,7 +48,7 @@ function dataDidLoad(error, geojson1, city1, overlap, neighbors,neighborhoodDict
 	global.minDifference = minDifference
 	global.scale = scale
 	window.location.hash = JSON.stringify([global.translate, global.translateScale])
-	initNycMap(geojson1, city1, "Median", "#svg-1",0,global.maxIncome*100000,neighbors,overlap,neighborhoodDictionary)
+	initNycMap(geojson1, csv, "Median", "#svg-1",0,global.maxIncome*100000,neighbors,overlap,neighborhoodDictionary)
 	$("#topDifferences .showTop").click(hideTop)
 	$("#topDifferences .hideTop").click(showTop)
 	d3.selectAll("#svg-1 svg g .topDifferences").attr("opacity",0)
@@ -69,10 +70,8 @@ function drawWater(water,svg,fill,stroke,waterClass){
         .append("path")
 		.attr("class","water")
 		.attr("d",path)
-		.style("fill","none")
-	   // .style("opacity",.1)
-		.style("stroke","#ddd")
-		.style("stroke-width",1)
+		.style("fill","#fff")
+	    .style("opacity",.4)
 	.on("mouseover", function(d){
 		tip.html( d.properties.FULLNAME)
 		tip.show()
@@ -207,23 +206,18 @@ function zoomed() {
 }
 function initNycMap(paths, data, column, svg,low,high,neighbors,overlap,neighborhoodDictionary) {
 	renderMap(paths,svg, global.usMapWidth,global.usMapHeight)
-//	renderNycMap(data,column,svg,low,high,neighbors,neighborhoodDictionary)
-//	var differenceData = formatDifferenceData(data,overlap)
-//	drawTopDifferences(differenceData)
-//	drawDifferences(data,svg,overlap)
 	if(water != null && water != undefined){
 		d3.json(water, function(waterdata) {
 			drawWater(waterdata, "#svg-1","#000","blue","water")
 		});
 	}	
-	formatMovement(overlap)
+	formatMovement(data)
 
-	var parsedTranslate = JSON.parse(window.location.hash.substring(1))[0]
-	var parsedScale = JSON.parse(window.location.hash.substring(1))[1]
-	global.translate = parsedTranslate
-	global.translateScale = parsedScale
-	map.attr("transform", "translate(" + global.translate + ")scale(" + global.translateScale + ")");
-	//console.log(neighborhoodDictionary.blockgroup_nhoods)
+//	var parsedTranslate = JSON.parse(window.location.hash.substring(1))[0]
+//	var parsedScale = JSON.parse(window.location.hash.substring(1))[1]
+//	global.translate = parsedTranslate
+//	global.translateScale = parsedScale
+//	map.attr("transform", "translate(" + global.translate + ")scale(" + global.translateScale + ")");
 }
 function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
   var R = 6371; // Radius of the earth in km
@@ -257,77 +251,86 @@ function renderBoroughs(data,svg,width,height){
 		.attr("fill","#eee")
 		.attr("stroke-width",.5)
 }
+
 function formatMovement(data){
 	var colorIndex = 0
 	var colorArray =["#5BB076","#6ADE3F","#55992F","#A8DC5C","#60E189","#B7DB94","#5F804C"]
-
-	for(var i in data){
-		colorIndex = colorIndex+1
-		var placeInColorArray = colorIndex%(colorArray.length)
-		var color = colorArray[placeInColorArray]
-		drawMovement(data[i],i,color,colorIndex)
-		if(colorIndex > 2000){
-			return
-		}
-	}
+	var colorDictionary = {"F":"red","M":"green","N":"black"}
+	//lat1,lng1,lat2,lng2,weekday,gender,minute,duration,id
+	var groupByMinute = table.group(data, ["minute"])
+	//console.log(groupByMinute)
+	var starttime = 0
+	var endtime = starttime+0.1
+	global.data = table.filter(table.group(data, ["weekday"]), function(list, minute) {
+		return (minute == 3)
+	})
+	
+	setInterval(function(){
+		starttime +=.1
+		endtime+=.1
+		var weekdaycolor = {1:"green"}
+			data = table.filter(table.group(global.data, ["minute"]), function(list, minute) {
+				return (minute > starttime*60 && minute < endtime*60)
+			})
+		console.log([starttime,endtime])
+		for(var i in data){
+			var numberOfSegments = data[i]
+			//var color = colorArray[placeInColorArray]
+			var gender = data[i]["gender"]
+			var minutes = data[i]["minute"]
+			var weekday = data[i]["weekday"]
+			var duration = data[i]["duration"]		
+			var color = colorDictionary[gender]
+			//console.log(data[i])
+			drawMovement(data[i],color,duration)
+			
+			d3.select("#subtitle").html("time interval: "+Math.round(starttime*100)/100 + " - "+Math.round(endtime*100)/100 )
+			
+			if(endtime> 23){
+				starttime = 0
+				endtime = starttime+0.1
+			}
+		}	
+		
+	},100)
 }
-function drawMovement(data,id,color,colorIndex){
+function drawMovement(data,color,duration){
 	var projection = d3.geo.mercator().scale(global.scale).center(global.center)
 	var moveMap = d3.select("#svg-1 svg g")
+	var lineData = [{x:parseFloat(data["lat1"]),y:parseFloat(data["lng1"])},{x:parseFloat(data["lat2"]),y:parseFloat(data["lng2"])}]
+	
 	var line = d3.svg.line()
-	.interpolate("cardinal")
-	.x(function(d){return projection([d[1],d[0]])[0]})
-	.y(function(d){return projection([d[1],d[0]])[1]})
-//	var color = d3.interpolateLab("#008000", "#c83a22");
+	.x(function(d){
+		//console.log(d)
+		return projection([d["y"],d["x"]])[0]})
+	.y(function(d){return projection([d["y"],d["x"]])[1]})
+	
 	var path = moveMap.append("path")
 	.attr("class","line")
-	.attr("d", line(data))
+	.attr("d", line(lineData))
 	.attr("fill","none")
 	.attr("stroke", color)
-	.attr("stroke-width",2)
-	.attr("opacity",.8)
-	//.style("stroke-dasharray", ("20, 3"))
-	
-	var totalLength = path.node().getTotalLength();
+	.attr("stroke-width",1)
+	.attr("opacity",0.5)
+
+//	.style("stroke-dasharray", ("20, 3"))
+		var totalLength = path.node().getTotalLength();
 	if(totalLength>100){
 	var dashLength = 50	
 	}
 	else{
 	var dashLength = totalLength/20
 	}
-	path.attr("stroke-dasharray",80 + " " + totalLength)
+	path.attr("stroke-dasharray",totalLength + " " + totalLength)
 		.attr("stroke-dashoffset", totalLength)
 		.transition()
 		//.delay(colorIndex*500)
-	    .duration(totalLength*5)
+	    .duration(1000)
 	    .ease("linear")
 	    .attr("stroke-dashoffset", 0)
-		.attr("opacity",0.3)
-	
-//	moveMap.selectAll("circle")
-//	.data(data)
-//	.enter()
-//	.append("circle")
-//	.attr("class", id)
-//	.attr("cx",function(d){
-//		return projection([d[1],d[0]])[0]
-//		return 20
-//	})
-//	.attr("cy",function(d){
-//		return projection([d[1],d[0]])[1]
-//		return 20
-//	})
-//	.attr("r", 2)
-//	.attr("fill",color)
-	//.attr("opacity", 0)
-	//.transition()
-	//.duration(50)
-	//.delay(function(d,i){return i*50})
-	//.attr("opacity", .8)
-	//.transition()
-	//.delay(function(d,i){return i*60})
-	//.duration(50)
-	//.attr("opacity",0.3)
+		.attr("opacity",0.0)
+		.remove()
+
 }
 
 function isInArray(value, array) {
@@ -375,67 +378,6 @@ function drawScale(){
 			.attr("y",35)
 			.attr("font-size",12)
 }
-function drawTopDifferences(data){
-	var topDifferencesData = data.slice(0,80)
-	var centroids = []
-	var differences = []
-	var topDifferences = d3.select("#svg-1 svg g")
-	var projection = d3.geo.mercator().scale(global.scale).center(global.center)
-	var line = d3.svg.line()
-	topDifferences.selectAll(".topDifferences")
-	.data(topDifferencesData)
-	.enter()
-	.append("line")
-	.attr("class","topDifferences")
-	.attr("x1", function(d){
-		//return 5
-		var lng1 = parseFloat(d["lng1"])
-		var lat1 = parseFloat(d["lat1"])
-	//	console.log(lng1)
-
-		var x1 = (projection([lng1,lat1])[0])
-	//	console.log(x1)
-		return x1
-	})
-	.attr("y1", function(d){
-		//return 5
-		var lng1 = d["lng1"]
-		var lat1 = d["lat1"]
-		var y1 = (projection([lng1,lat1])[1])
-		//console.log(y)
-		return y1
-	})
-	.attr("x2", function(d){
-		var lng = d["lng2"]
-		var lat = d["lat2"]
-		var x2 = (projection([lng,lat])[0])
-		return x2
-	})
-	.attr("y2", function(d){
-		var lng = d["lng2"]
-		var lat = d["lat2"]
-		var y2 = (projection([lng,lat])[1])
-		//console.log(y)
-		return y2
-	})
-	.attr("stroke-width",function(d){
-		var difference = d["difference"]
-		if(isNaN(difference)){
-			return 0
-		}
-		return 10
-	})
-	.attr("stroke",function(d){
-		var difference = d["difference"]
-		if(isNaN(difference)){
-			return "none"
-		}
-		return "#E7D839"
-	})
-	.attr("stroke-opacity",.1)
-		.attr("stroke-linecap","round")
-	
-}
 function renderMap(data, selector,width,height) {
 	var projection = d3.geo.mercator().scale(global.scale).center(global.center)
 	var path = d3.geo.path().projection(projection);
@@ -448,10 +390,11 @@ function renderMap(data, selector,width,height) {
 		
 	var svg = d3.select(selector).append("svg")
 		.attr('height', height)
-		.attr('width', width);
+		.attr('width', width)
+		.attr("fill", "none");
 		
 	map =  svg.append("g")
-		
+
 //	map.append("rect")
 //	    .attr("class", "overlay")
 //	    .attr("width", width)
@@ -465,8 +408,7 @@ function renderMap(data, selector,width,height) {
 		.attr("d", path)
 		.attr("class", "map-item")
 		.attr("cursor", "pointer")
-		.attr("fill","#fff")
-	    .call(zoom);
+		.call(zoom);
 	return map
 }
 function medianValuesOnly(data){
