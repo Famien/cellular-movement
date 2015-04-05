@@ -9,7 +9,23 @@ csv.field_size_limit(sys.maxsize)
 from datetime import datetime
 from operator import itemgetter
 from datetime import date
+from math import radians, cos, sin, asin, sqrt
 
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points 
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians 
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a)) 
+    r = 3956 #6371 # Radius of earth in kilometers. Use 3956 for miles
+    return c * r
 #print datetime.today().weekday()
 
 def weekDay(year, month, day):
@@ -144,15 +160,22 @@ def outputCoordinatesToJson():
 					gender = multipleIdLocations[sortedItem][j][3]
 					startminutes = multipleIdLocations[sortedItem][j][2]
 					endminutes = multipleIdLocations[sortedItem][j+1][2]
-					startlat = multipleIdLocations[sortedItem][j][0]
 					
-					startlng = multipleIdLocations[sortedItem][j][1]
-					endlat = multipleIdLocations[sortedItem][j+1][0]
-					endlng = multipleIdLocations[sortedItem][j+1][1]
+					startlat = float(multipleIdLocations[sortedItem][j][0])
+					startlng = float(multipleIdLocations[sortedItem][j][1])
+					endlat = float(multipleIdLocations[sortedItem][j+1][0])
+					endlng = float(multipleIdLocations[sortedItem][j+1][1])
+					
 					duration = endminutes-startminutes
+					
+					distance = haversine(startlng, startlat, endlng, endlat)
+					
+					
 					if startlat != endlat and startlng != endlng and duration > 0:
+						speed = distance/duration*60
+						if speed < 1:
 						#print startlat, startlng, endlat, endlng,weekday,gender,startminutes,endminutes,sortedItem
-						file.writerow([startlat, startlng, endlat, endlng,weekday,gender,startminutes,duration,sortedItem])
+							file.writerow([startlat, startlng, endlat, endlng,weekday,gender,startminutes,duration,sortedItem])
 						
 
 	with open('test.txt', 'wb') as outfile:

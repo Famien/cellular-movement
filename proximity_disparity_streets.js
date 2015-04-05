@@ -23,7 +23,9 @@ var global = {
 	mapFillColor:null,
 	minDifference:15,
 	city:city,
-	data:null
+	data:null,
+	histogramInterval:15,
+	weekdayFilter:[3,4]
 }
 $(function() {
 	queue()
@@ -59,11 +61,11 @@ function drawWater(water,svg,fill,stroke,waterClass){
 	var path = d3.geo.path().projection(projection);
 	var waterShape = d3.select("#svg-1 svg g")
 	
-	var tip = d3.tip()
-		.attr('class', 'd3-tip-nyc-difference')
-		.offset([0, 0])
-	
-	waterShape.call(tip);
+//	var tip = d3.tip()
+//		.attr('class', 'd3-tip-nyc-difference')
+//		.offset([0, 0])
+//	
+//	waterShape.call(tip);
 	waterShape.selectAll(".water")
 		.data(water.features)
         .enter()
@@ -71,14 +73,14 @@ function drawWater(water,svg,fill,stroke,waterClass){
 		.attr("class","water")
 		.attr("d",path)
 		.style("fill","#fff")
-	    .style("opacity",.4)
-	.on("mouseover", function(d){
-		tip.html( d.properties.FULLNAME)
-		tip.show()
-	})
-	.on("mouseout",function(d){
-		tip.hide()
-	})
+	    .style("opacity",.1)
+//	.on("mouseover", function(d){
+//		tip.html( d.properties.FULLNAME)
+//		tip.show()
+//	})
+//	.on("mouseout",function(d){
+//		tip.hide()
+//	})
 }
 function toTitleCase(str){
     return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
@@ -206,13 +208,13 @@ function zoomed() {
 }
 function initNycMap(paths, data, column, svg,low,high,neighbors,overlap,neighborhoodDictionary) {
 	renderMap(paths,svg, global.usMapWidth,global.usMapHeight)
+	drawTimeHistogram(data)
+	formatMovement(data)
 	if(water != null && water != undefined){
 		d3.json(water, function(waterdata) {
 			drawWater(waterdata, "#svg-1","#000","blue","water")
 		});
-	}	
-	formatMovement(data)
-
+	}
 //	var parsedTranslate = JSON.parse(window.location.hash.substring(1))[0]
 //	var parsedScale = JSON.parse(window.location.hash.substring(1))[1]
 //	global.translate = parsedTranslate
@@ -251,20 +253,112 @@ function renderBoroughs(data,svg,width,height){
 		.attr("fill","#eee")
 		.attr("stroke-width",.5)
 }
+function formatTimeHistogram(data){
+	var interval = global.histogramInterval
+	var barNumber = 0
+	var itemInBar = 0
+	var intervalArray = []
+	data = table.filter(table.group(data, ["weekday"]), function(list, minute) {
+		return (minute >= global.weekdayFilter[0] && minute <= global.weekdayFilter[1])
+	})
+	var groupByMinute = table.group(data, ["minute"])
+	for(var i in groupByMinute){
+		itemInBar += groupByMinute[i].length
+		if(i%interval == 0){
+		intervalArray.push([barNumber,itemInBar])
+			
+			barNumber += 1
+			itemInBar = 0
+		}		
+	}
+	return intervalArray
+}
+function drawTimeHistogram(data){
+	var width = 1000
+	var height = 200
+	var margin = 60
 
+	var intervalData = formatTimeHistogram(data)
+	var barwidth = (width-margin*2)/intervalData.length
+	var heightScale = d3.scale.linear().domain([0,200]).range([0,height-margin*2])
+	var reverseheightScale = d3.scale.linear().domain([200,0]).range([0,height-margin*2])
+	
+	var histogram = d3.select("#svg-2").append("svg")
+		.attr("width", width)
+		.attr("height", height)
+	
+	var x = d3.scale.linear().domain([0,intervalData.length]).range([0,width-margin*2])
+	
+	var xAxis = d3.svg.axis()
+	    .scale(x)
+	    .orient("bottom")
+		.tickFormat(function(d){
+			console.log(d)
+			return d*15/60
+		});
+	
+	var yAxis = d3.svg.axis()
+	    .scale(reverseheightScale)
+	    .orient("left")
+		.ticks(4);
+	
+	histogram.selectAll("rect")
+	.data(intervalData)
+	.enter()
+	.append("rect")
+	.attr("class",function(d){
+		return "interval_"+d[0]
+	})
+	.attr("width", function(d){
+		return barwidth-2
+	})
+	.attr("height",function(d){
+		return heightScale(d[1])
+	})
+	.attr("x",function(d,i){
+		return x(d[0])+margin
+	})
+	.attr("y",function(d){
+		return height-heightScale(d[1])-margin-30
+	})	
+	.attr("fill","#aaa")
+//	.on("mouseover", function(d){
+//		console.log(d)
+//	})
+	
+histogram.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(60,120)")
+    .call(xAxis)
+
+histogram.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(50,30)")
+    .call(yAxis)
+}
 function formatMovement(data){
 	var colorIndex = 0
 	var colorArray =["#5BB076","#6ADE3F","#55992F","#A8DC5C","#60E189","#B7DB94","#5F804C"]
-	var colorDictionary = {"F":"red","M":"green","N":"black"}
+	var colorDictionary = {"F":"#51471F","M":"#948430","N":"#70682A"}
 	//lat1,lng1,lat2,lng2,weekday,gender,minute,duration,id
 	var groupByMinute = table.group(data, ["minute"])
 	//console.log(groupByMinute)
 	var starttime = 0
-	var endtime = starttime+0.1
+	var endtime = starttime+global.histogramInterval*1.0/60
+	var weekdayFilter = global.weekdayFilter
 	global.data = table.filter(table.group(data, ["weekday"]), function(list, minute) {
-		return (minute == 3)
+		return (minute >= weekdayFilter[0] && minute <= weekdayFilter[1])
 	})
-	
+	var weekdayDictionary = {
+		1:"Monday",
+		2:"Tuesday",
+		3:"Wednesday",
+		4:"Thursday",
+		5:"Friday",
+		6:"Saturday",
+		0:"Sunday"
+	}
+	d3.select("#title").html(weekdayDictionary[weekdayFilter[0]]+" - "+weekdayDictionary[weekdayFilter[1]])
 	setInterval(function(){
 		starttime +=.1
 		endtime+=.1
@@ -272,8 +366,7 @@ function formatMovement(data){
 			data = table.filter(table.group(global.data, ["minute"]), function(list, minute) {
 				return (minute > starttime*60 && minute < endtime*60)
 			})
-		console.log([starttime,endtime])
-		for(var i in data){
+			for(var i in data){
 			var numberOfSegments = data[i]
 			//var color = colorArray[placeInColorArray]
 			var gender = data[i]["gender"]
@@ -283,12 +376,17 @@ function formatMovement(data){
 			var color = colorDictionary[gender]
 			//console.log(data[i])
 			drawMovement(data[i],color,duration)
-			
-			d3.select("#subtitle").html("time interval: "+Math.round(starttime*100)/100 + " - "+Math.round(endtime*100)/100 )
+			var barNumber = Math.round(starttime*60/global.histogramInterval)
+			d3.selectAll("#svg-2 rect").attr("fill","#aaa")
+			d3.selectAll(".interval_"+barNumber).attr("fill","#70682A")
+			d3.select("#subtitle")
+				.html("time interval size: " + global.histogramInterval+" minutes</br>"
+				
+				+ "start time between: " + Math.round(starttime*100)/100 + " - "+Math.round(endtime*100)/100 )
 			
 			if(endtime> 23){
 				starttime = 0
-				endtime = starttime+0.1
+				endtime = starttime+global.histogramInterval*1.0/60
 			}
 		}	
 		
@@ -325,7 +423,7 @@ function drawMovement(data,color,duration){
 		.attr("stroke-dashoffset", totalLength)
 		.transition()
 		//.delay(colorIndex*500)
-	    .duration(1000)
+	    .duration(2500)
 	    .ease("linear")
 	    .attr("stroke-dashoffset", 0)
 		.attr("opacity",0.0)
