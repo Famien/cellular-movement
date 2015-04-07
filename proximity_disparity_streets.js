@@ -30,7 +30,8 @@ var global = {
 $(function() {
 	queue()
 		.defer(d3.json, geojson1)
-		.defer(d3.csv, csv)
+		.defer(d3.json, dots)
+		.defer(d3.csv, lines)
 		.defer(d3.json,overlap)
 		.defer(d3.json,neighbors)
 		.defer(d3.json,neighborhoods)
@@ -39,7 +40,7 @@ $(function() {
 
 $("#topDifferences .hideTop").hide()
 
-function dataDidLoad(error, geojson1, csv, overlap, neighbors,neighborhoodDictionary) {
+function dataDidLoad(error, geojson1, dots, lines, overlap, neighbors,neighborhoodDictionary) {
 	d3.select("#title").html(toTitleCase(city.replace("_"," ")))
 	var subtitle = d3.select("#subtitle").html()
 	subtitle = subtitle.replace("current city", toTitleCase(city))
@@ -50,7 +51,7 @@ function dataDidLoad(error, geojson1, csv, overlap, neighbors,neighborhoodDictio
 	global.minDifference = minDifference
 	global.scale = scale
 //	window.location.hash = JSON.stringify([global.translate, global.translateScale])
-	initNycMap(geojson1, csv, "Median", "#svg-1",0,global.maxIncome*100000,neighbors,overlap,neighborhoodDictionary)
+	initNycMap(geojson1, dots,lines, "Median", "#svg-1",0,global.maxIncome*100000,neighbors,overlap,neighborhoodDictionary)
 	$("#topDifferences .showTop").click(hideTop)
 	$("#topDifferences .hideTop").click(showTop)
 	d3.selectAll("#svg-1 svg g .topDifferences").attr("opacity",0)
@@ -82,6 +83,7 @@ function drawWater(water,svg,fill,stroke,waterClass){
 //		tip.hide()
 //	})
 }
+
 function toTitleCase(str){
     return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
 }
@@ -206,10 +208,11 @@ function zoomed() {
 	d3.select("#scale .scale-text").text(newScaleDistance+"km")
 	window.location.hash = JSON.stringify([d3.event.translate, d3.event.scale])
 }
-function initNycMap(paths, data, column, svg,low,high,neighbors,overlap,neighborhoodDictionary) {
+function initNycMap(paths, dots,lines, column, svg,low,high,neighbors,overlap,neighborhoodDictionary) {
 	renderMap(paths,svg, global.usMapWidth,global.usMapHeight)
-	drawTimeHistogram(data)
-	formatMovement(data)
+	drawTimeHistogram(lines)
+	formatMovement(lines)
+	drawDots(dots)
 	if(water != null && water != undefined){
 		d3.json(water, function(waterdata) {
 			drawWater(waterdata, "#svg-1","#000","blue","water")
@@ -339,7 +342,8 @@ function formatMovement(data){
 	var colorIndex = 0
 	var colorArray =["#5BB076","#6ADE3F","#55992F","#A8DC5C","#60E189","#B7DB94","#5F804C"]
 	//var colorDictionary = {"F":"#51471F","M":"#948430","N":"#70682A"}
-	var colorDictionary = {"F":"#5D8B4A","M":"#79D247","N":"#95DB91"}
+	var colorDictionary = {"F":"#333","M":"#444","N":"#555"}
+	//var colorDictionary = {"F":"#5D8B4A","M":"#79D247","N":"#95DB91"}
 	//lat1,lng1,lat2,lng2,weekday,gender,minute,duration,id
 	var groupByMinute = table.group(data, ["minute"])
 	//console.log(groupByMinute)
@@ -434,7 +438,37 @@ function drawMovement(data,color,duration){
 		.remove()
 
 }
+function drawDots(data){
+	//console.log(data)
+	for(var i in data){
+	//	console.log([i,data[i]])
+		for (var dots in data[i]){
+			//console.log(data[i][dots])
+			drawEach(data[i][dots])
+		}
+	}
 
+}
+
+function drawEach(data){
+	var projection = d3.geo.mercator().scale(global.scale).center(global.center)
+	var dotMap = d3.select("#svg-1 svg").append("g").attr("class","scatterplot")
+	dotMap
+	//.data(data)
+	//.enter()
+	.append("circle")
+	.attr("cx",function(){
+		return projection([data[1],data[0]])[0]
+	})
+	.attr("cy",function(){
+		//console.log(d)
+		return projection([data[1],data[0]])[1]
+	})
+	.attr("r", 2)
+	.attr("fill","black")
+	.attr("opacity",.1)
+	
+}
 function isInArray(value, array) {
   return array.indexOf(value) > -1;
 }

@@ -11,6 +11,8 @@ from operator import itemgetter
 from datetime import date
 from math import radians, cos, sin, asin, sqrt
 
+badCoordinates  = [[42.3548, -71.0546],[42.3559,-71.0646],[42.3549,-71.0646]]
+
 def haversine(lon1, lat1, lon2, lat2):
     """
     Calculate the great circle distance between two points 
@@ -168,14 +170,15 @@ def outputCoordinatesToJson():
 					
 					duration = endminutes-startminutes
 					
-					distance = haversine(startlng, startlat, endlng, endlat)
-					
-					
-					if startlat != endlat and startlng != endlng and duration > 0:
-						speed = distance/duration*60
-						if speed < 1:
-						#print startlat, startlng, endlat, endlng,weekday,gender,startminutes,endminutes,sortedItem
-							file.writerow([startlat, startlng, endlat, endlng,weekday,gender,startminutes,duration,sortedItem])
+					if ([startlat,startlng] in badCoordinates and [endlat,endlng] in badCoordinates)==False:
+						if startlat != endlat and startlng != endlng and duration > 0:
+							distance = haversine(startlng, startlat, endlng, endlat)
+							speed = distance/duration*60
+							if speed < .5:
+##							#print startlat, startlng, endlat, endlng,weekday,gender,startminutes,endminutes,sortedItem
+								#print speed, distance
+
+								file.writerow([startlat, startlng, endlat, endlng,weekday,gender,startminutes,duration,sortedItem])
 						
 
 	with open('test.txt', 'wb') as outfile:
