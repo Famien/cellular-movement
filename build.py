@@ -185,7 +185,7 @@ def outputCoordinatesToJson():
 	    json.dump(multipleIdLocations, outfile)
 	print ageArray
 
-outputCoordinatesToJson()
+#outputCoordinatesToJson()
 
 
 def filterOutByFrequencyToCsv():
