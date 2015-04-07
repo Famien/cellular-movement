@@ -15,8 +15,8 @@ var global = {
 	maxIncome:250000,
 	gradientStart:"#fff",
 	gradientEnd:"#eee",
-	scale:80000,
-	center:null,
+	scale:4000000,
+	center:[-71.063,42.3562],
 	neighbors:null,
 	translate:[0,0],
 	translateScale:1,
@@ -25,7 +25,7 @@ var global = {
 	city:city,
 	data:null,
 	histogramInterval:15,
-	weekdayFilter:[3,4]
+	weekdayFilter:[0,0]
 }
 $(function() {
 	queue()
@@ -49,7 +49,7 @@ function dataDidLoad(error, geojson1, csv, overlap, neighbors,neighborhoodDictio
 	global.center = center
 	global.minDifference = minDifference
 	global.scale = scale
-	window.location.hash = JSON.stringify([global.translate, global.translateScale])
+//	window.location.hash = JSON.stringify([global.translate, global.translateScale])
 	initNycMap(geojson1, csv, "Median", "#svg-1",0,global.maxIncome*100000,neighbors,overlap,neighborhoodDictionary)
 	$("#topDifferences .showTop").click(hideTop)
 	$("#topDifferences .hideTop").click(showTop)
@@ -73,7 +73,7 @@ function drawWater(water,svg,fill,stroke,waterClass){
 		.attr("class","water")
 		.attr("d",path)
 		.style("fill","#fff")
-	    .style("opacity",.1)
+	    .style("opacity",.8)
 //	.on("mouseover", function(d){
 //		tip.html( d.properties.FULLNAME)
 //		tip.show()
@@ -293,7 +293,6 @@ function drawTimeHistogram(data){
 	    .scale(x)
 	    .orient("bottom")
 		.tickFormat(function(d){
-			console.log(d)
 			return d*15/60
 		});
 	
@@ -321,25 +320,26 @@ function drawTimeHistogram(data){
 	.attr("y",function(d){
 		return height-heightScale(d[1])-margin-30
 	})	
-	.attr("fill","#aaa")
-//	.on("mouseover", function(d){
-//		console.log(d)
-//	})
+	.attr("fill","#000")
+	//	.on("mouseover", function(d){
+	//		console.log(d)
+	//	})
 	
-histogram.append("g")
-    .attr("class", "x axis")
-    .attr("transform", "translate(60,120)")
-    .call(xAxis)
+	histogram.append("g")
+	    .attr("class", "x axis")
+	    .attr("transform", "translate(60,120)")
+	    .call(xAxis)
 
-histogram.append("g")
-    .attr("class", "x axis")
-    .attr("transform", "translate(50,30)")
-    .call(yAxis)
+	histogram.append("g")
+	    .attr("class", "x axis")
+	    .attr("transform", "translate(50,30)")
+	    .call(yAxis)
 }
 function formatMovement(data){
 	var colorIndex = 0
 	var colorArray =["#5BB076","#6ADE3F","#55992F","#A8DC5C","#60E189","#B7DB94","#5F804C"]
-	var colorDictionary = {"F":"#51471F","M":"#948430","N":"#70682A"}
+	//var colorDictionary = {"F":"#51471F","M":"#948430","N":"#70682A"}
+	var colorDictionary = {"F":"#5D8B4A","M":"#79D247","N":"#95DB91"}
 	//lat1,lng1,lat2,lng2,weekday,gender,minute,duration,id
 	var groupByMinute = table.group(data, ["minute"])
 	//console.log(groupByMinute)
@@ -377,7 +377,7 @@ function formatMovement(data){
 			//console.log(data[i])
 			drawMovement(data[i],color,duration)
 			var barNumber = Math.round(starttime*60/global.histogramInterval)
-			d3.selectAll("#svg-2 rect").attr("fill","#aaa")
+			d3.selectAll("#svg-2 rect").attr("fill","#000")
 			d3.selectAll(".interval_"+barNumber).attr("fill","#70682A")
 			d3.select("#subtitle")
 				.html("time interval size: " + global.histogramInterval+" minutes</br>"
@@ -398,6 +398,7 @@ function drawMovement(data,color,duration){
 	var lineData = [{x:parseFloat(data["lat1"]),y:parseFloat(data["lng1"])},{x:parseFloat(data["lat2"]),y:parseFloat(data["lng2"])}]
 	
 	var line = d3.svg.line()
+	.interpolate("basis")
 	.x(function(d){
 		//console.log(d)
 		return projection([d["y"],d["x"]])[0]})
@@ -409,8 +410,9 @@ function drawMovement(data,color,duration){
 	.attr("fill","none")
 	.attr("stroke", color)
 	.attr("stroke-width",1)
-	.attr("opacity",0.5)
-
+	.attr("opacity",0.2)
+	.on("mouseover",function(){console.log([lineData[0],lineData[1]])})
+		
 //	.style("stroke-dasharray", ("20, 3"))
 		var totalLength = path.node().getTotalLength();
 	if(totalLength>100){
@@ -423,10 +425,12 @@ function drawMovement(data,color,duration){
 		.attr("stroke-dashoffset", totalLength)
 		.transition()
 		//.delay(colorIndex*500)
-	    .duration(2500)
+	    .duration(2000)
 	    .ease("linear")
 	    .attr("stroke-dashoffset", 0)
-		.attr("opacity",0.0)
+		.attr("opacity",0.1)
+		.transition()
+		.delay(2000)
 		.remove()
 
 }
@@ -493,11 +497,11 @@ function renderMap(data, selector,width,height) {
 		
 	map =  svg.append("g")
 
-//	map.append("rect")
-//	    .attr("class", "overlay")
-//	    .attr("width", width)
-//	    .attr("height", height)
-//	 	.call(zoom);
+	map.append("rect")
+	    .attr("class", "overlay")
+	    .attr("width", width)
+	    .attr("height", height)
+	 	.call(zoom);
 				
 	map.selectAll(".map").append("path")
 		.data(data.features)
