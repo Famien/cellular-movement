@@ -78,7 +78,7 @@ def countMinutes(timestamp):
 	return totalminutes
 		
 def outputCoordinatesToJson():
-	with open('utile-5ad732/040115_DTX_people flow test_gender.csv', 'rb') as csvfile:
+	with open('boston/points.csv', 'rb') as csvfile:
 		file = csv.reader(csvfile)
 		csvfile.seek(1)
 		next(csvfile, None)
@@ -93,8 +93,7 @@ def outputCoordinatesToJson():
 	#print sortedDictionary
 	i = 0
 	ageArray = {}
-	with open('utile-5ad732/040115_DTX_people flow test_gender.csv', 'rb') as csvfile:
-		print "2"
+	with open('boston/points.csv', 'rb') as csvfile:
 		file = csv.reader(csvfile)
 		csvfile.seek(1)
 		next(csvfile, None)
@@ -136,7 +135,7 @@ def outputCoordinatesToJson():
 						multipleIdLocations[phoneIdDate].append([lat,lng,minutes,gender,weekday])
 						#print multipleIdLocations		
 						#break//# dc.js Getting Started and How-To Guide
-
+	print "there are this many unique ids "+str(len(multipleIdLocations))
 #sort within each id
 	for item in multipleIdLocations:
 		unsorted = multipleIdLocations[item]
@@ -148,44 +147,53 @@ def outputCoordinatesToJson():
 	#write csv with line segments
 
 #filter out not enough point ids, and convert to segments
-	with open("segments.csv","wb") as outcsv:
+	with open("will_points_processed.csv","wb") as outcsv:
+		has2points = 0
+		haslessthan2 = 0
+		uniqueSegments = 0
+		hasDifPoints = 0
+		maxduration = 0
 		file = csv.writer(outcsv)
 		for sortedItem in multipleIdLocations:
 			pointsPerDayPerId = len(multipleIdLocations[sortedItem])
-		
-			if pointsPerDayPerId > 2:
+			multipleIdLocations[sortedItem] = sorted(multipleIdLocations[sortedItem], key = lambda x: x[2])
+			if pointsPerDayPerId < 2:
+				haslessthan2 +=1
+			if pointsPerDayPerId >= 2:
 				#print pointsPerDayPerId, multipleIdLocations[sortedItem]
-			
+				has2points+=1
+				uniqueSegments += pointsPerDayPerId
+				
 				for j in range(pointsPerDayPerId-1):
 
 					weekday = multipleIdLocations[sortedItem][j][4]
 					gender = multipleIdLocations[sortedItem][j][3]
 					startminutes = multipleIdLocations[sortedItem][j][2]
 					endminutes = multipleIdLocations[sortedItem][j+1][2]
-					
+					if endminutes < startminutes:
+						print "wrong order"
 					startlat = float(multipleIdLocations[sortedItem][j][0])
 					startlng = float(multipleIdLocations[sortedItem][j][1])
 					endlat = float(multipleIdLocations[sortedItem][j+1][0])
 					endlng = float(multipleIdLocations[sortedItem][j+1][1])
 					
 					duration = endminutes-startminutes
-					
-					if ([startlat,startlng] in badCoordinates and [endlat,endlng] in badCoordinates)==False:
-						if startlat != endlat and startlng != endlng and duration > 0:
-							distance = haversine(startlng, startlat, endlng, endlat)
-							speed = distance/duration*60
-							if speed < .5:
-##							#print startlat, startlng, endlat, endlng,weekday,gender,startminutes,endminutes,sortedItem
-								#print speed, distance
+					distance = haversine(startlng, startlat, endlng, endlat)
 
-								file.writerow([startlat, startlng, endlat, endlng,weekday,gender,startminutes,duration,sortedItem])
+					if duration > maxduration:
+						maxduration = duration					
+					if startlat != endlat or startlng != endlng:
+						hasDifPoints+=1
+						file.writerow([startlat, startlng, endlat, endlng,weekday,gender,startminutes,duration,sortedItem])
 						
-
+	print "has more than 2 points per day:" + str(has2points)+ ", has less than 2:"+ str(haslessthan2)+ ", total of segments:"+str(uniqueSegments)
+	print "has different start and end points: "+str(hasDifPoints)
+	print "max time not moving is: " + str(maxduration)
 	with open('test.txt', 'wb') as outfile:
 	    json.dump(multipleIdLocations, outfile)
-	print ageArray
+	#print ageArray
 
-#outputCoordinatesToJson()
+outputCoordinatesToJson()
 
 
 def filterOutByFrequencyToCsv():

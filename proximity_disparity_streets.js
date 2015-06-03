@@ -8,29 +8,11 @@ var config = {
 		xScale: d3.scale.linear().domain([1880,2014]).range([20, 950])
 	}
 }
-var global = {
-	usMapWidth:1500,
-	usMapHeight:1200,
-	max:200000,
-	maxIncome:250000,
-	gradientStart:"#fff",
-	gradientEnd:"#eee",
-	scale:4000000,
-	center:[-71.063,42.3562],
-	neighbors:null,
-	translate:[0,0],
-	translateScale:1,
-	mapFillColor:null,
-	minDifference:15,
-	city:city,
-	data:null,
-	histogramInterval:15,
-	weekdayFilter:[0,0]
-}
+
 $(function() {
 	queue()
 		.defer(d3.json, geojson1)
-		.defer(d3.json, dots)
+		.defer(d3.csv, dots)
 		.defer(d3.csv, lines)
 		.defer(d3.json,overlap)
 		.defer(d3.json,neighbors)
@@ -41,11 +23,8 @@ $(function() {
 $("#topDifferences .hideTop").hide()
 
 function dataDidLoad(error, geojson1, dots, lines, overlap, neighbors,neighborhoodDictionary) {
-	d3.select("#title").html(toTitleCase(city.replace("_"," ")))
-	var subtitle = d3.select("#subtitle").html()
-	subtitle = subtitle.replace("current city", toTitleCase(city))
-	subtitle = subtitle.replace(" 25%",minDifference +"%")
-	d3.select("#subtitle").html(subtitle)
+	//d3.select("#title").html(toTitleCase(city.replace("_"," ")))
+
 	global.neighbors = neighbors
 	global.center = center
 	global.minDifference = minDifference
@@ -57,31 +36,31 @@ function dataDidLoad(error, geojson1, dots, lines, overlap, neighbors,neighborho
 	d3.selectAll("#svg-1 svg g .topDifferences").attr("opacity",0)
 	drawScale()
 }
-function drawWater(water,svg,fill,stroke,waterClass){
+function drawWater(water,svg,fill,stroke,waterClass,opacity){
 	var projection = d3.geo.mercator().scale(global.scale).center(global.center)
 	var path = d3.geo.path().projection(projection);
 	var waterShape = d3.select("#svg-1 svg g")
 	
-//	var tip = d3.tip()
-//		.attr('class', 'd3-tip-nyc-difference')
-//		.offset([0, 0])
-//	
-//	waterShape.call(tip);
-	waterShape.selectAll(".water")
+	//	var tip = d3.tip()
+	//		.attr('class', 'd3-tip-nyc-difference')
+	//		.offset([0, 0])
+	//	
+	//	waterShape.call(tip);
+	waterShape.selectAll("."+waterClass)
 		.data(water.features)
         .enter()
         .append("path")
-		.attr("class","water")
+		.attr("class",waterClass)
 		.attr("d",path)
-		.style("fill","#fff")
-	    .style("opacity",.8)
-//	.on("mouseover", function(d){
-//		tip.html( d.properties.FULLNAME)
-//		tip.show()
-//	})
-//	.on("mouseout",function(d){
-//		tip.hide()
-//	})
+		.style("fill",fill)
+	    .style("opacity",opacity)
+	//	.on("mouseover", function(d){
+	//		tip.html( d.properties.FULLNAME)
+	//		tip.show()
+	//	})
+	//	.on("mouseout",function(d){
+	//		tip.hide()
+	//	})
 }
 
 function toTitleCase(str){
@@ -210,12 +189,22 @@ function zoomed() {
 }
 function initNycMap(paths, dots,lines, column, svg,low,high,neighbors,overlap,neighborhoodDictionary) {
 	renderMap(paths,svg, global.usMapWidth,global.usMapHeight)
-	drawTimeHistogram(lines)
 	formatMovement(lines)
-	drawDots(dots)
 	if(water != null && water != undefined){
 		d3.json(water, function(waterdata) {
-			drawWater(waterdata, "#svg-1","#000","blue","water")
+	drawWater(waterdata, "#svg-1","#fff","blue","water",1)
+		});
+	}
+
+//	dots = filterByHour(dots,11,12)
+	dots = filterByWeekday(dots)
+	drawDots(dots)
+	//lines = filterByWeekday(lines)
+	drawTimeHistogram(lines)
+
+	if(water != null && water != undefined){
+		d3.json(water, function(waterdata) {
+			drawWater(waterdata, "#svg-1","#fff","none","wateroverlay",.3)
 		});
 	}
 //	var parsedTranslate = JSON.parse(window.location.hash.substring(1))[0]
@@ -261,9 +250,6 @@ function formatTimeHistogram(data){
 	var barNumber = 0
 	var itemInBar = 0
 	var intervalArray = []
-	data = table.filter(table.group(data, ["weekday"]), function(list, minute) {
-		return (minute >= global.weekdayFilter[0] && minute <= global.weekdayFilter[1])
-	})
 	var groupByMinute = table.group(data, ["minute"])
 	for(var i in groupByMinute){
 		itemInBar += groupByMinute[i].length
@@ -283,8 +269,8 @@ function drawTimeHistogram(data){
 
 	var intervalData = formatTimeHistogram(data)
 	var barwidth = (width-margin*2)/intervalData.length
-	var heightScale = d3.scale.linear().domain([0,200]).range([0,height-margin*2])
-	var reverseheightScale = d3.scale.linear().domain([200,0]).range([0,height-margin*2])
+	var heightScale = d3.scale.linear().domain([0,400]).range([0,height-margin*2])
+	var reverseheightScale = d3.scale.linear().domain([400,0]).range([0,height-margin*2])
 	
 	var histogram = d3.select("#svg-2").append("svg")
 		.attr("width", width)
@@ -296,8 +282,18 @@ function drawTimeHistogram(data){
 	    .scale(x)
 	    .orient("bottom")
 		.tickFormat(function(d){
-			return d*15/60
-		});
+			var pacificTime = d*15/60-4
+			if(pacificTime<0){
+				pacificTime = pacificTime+24
+			}
+			if(pacificTime>12){
+				return pacificTime-12 + "pm"
+			}
+			else{
+				return pacificTime+"am"
+			}
+		})
+		.ticks(10);
 	
 	var yAxis = d3.svg.axis()
 	    .scale(reverseheightScale)
@@ -318,6 +314,12 @@ function drawTimeHistogram(data){
 		return heightScale(d[1])
 	})
 	.attr("x",function(d,i){
+		var pacificTime = d[0]-4
+		
+		if(pacificTime<0){
+			pacificTime = pacificTime+24
+		}
+		console.log([pacificTime,d[0]])
 		return x(d[0])+margin
 	})
 	.attr("y",function(d){
@@ -342,8 +344,9 @@ function formatMovement(data){
 	var colorIndex = 0
 	var colorArray =["#5BB076","#6ADE3F","#55992F","#A8DC5C","#60E189","#B7DB94","#5F804C"]
 	//var colorDictionary = {"F":"#51471F","M":"#948430","N":"#70682A"}
-	var colorDictionary = {"F":"#333","M":"#444","N":"#555"}
+	//var colorDictionary = {"F":"#333","M":"#444","N":"#555"}
 	//var colorDictionary = {"F":"#5D8B4A","M":"#79D247","N":"#95DB91"}
+	var colorDictionary = {"F":"#fb3408","M":"#20ccd0","N":"#aaa"}
 	//lat1,lng1,lat2,lng2,weekday,gender,minute,duration,id
 	var groupByMinute = table.group(data, ["minute"])
 	//console.log(groupByMinute)
@@ -362,7 +365,6 @@ function formatMovement(data){
 		6:"Saturday",
 		0:"Sunday"
 	}
-	d3.select("#title").html(weekdayDictionary[weekdayFilter[0]]+" - "+weekdayDictionary[weekdayFilter[1]])
 	setInterval(function(){
 		starttime +=.1
 		endtime+=.1
@@ -382,11 +384,11 @@ function formatMovement(data){
 			drawMovement(data[i],color,duration)
 			var barNumber = Math.round(starttime*60/global.histogramInterval)
 			d3.selectAll("#svg-2 rect").attr("fill","#000")
-			d3.selectAll(".interval_"+barNumber).attr("fill","#70682A")
+			d3.selectAll(".interval_"+barNumber).attr("fill","#aaa")
 			d3.select("#subtitle")
-				.html("time interval size: " + global.histogramInterval+" minutes</br>"
+				//.html("time interval size: " + global.histogramInterval+" minutes</br>"
 				
-				+ "start time between: " + Math.round(starttime*100)/100 + " - "+Math.round(endtime*100)/100 )
+				//+ "start time between: " + Math.round(starttime*100)/100 + " - "+Math.round(endtime*100)/100 )
 			
 			if(endtime> 23){
 				starttime = 0
@@ -394,13 +396,13 @@ function formatMovement(data){
 			}
 		}	
 		
-	},100)
+	},300)
 }
 function drawMovement(data,color,duration){
 	var projection = d3.geo.mercator().scale(global.scale).center(global.center)
 	var moveMap = d3.select("#svg-1 svg g")
 	var lineData = [{x:parseFloat(data["lat1"]),y:parseFloat(data["lng1"])},{x:parseFloat(data["lat2"]),y:parseFloat(data["lng2"])}]
-	
+
 	var line = d3.svg.line()
 	.interpolate("basis")
 	.x(function(d){
@@ -414,55 +416,57 @@ function drawMovement(data,color,duration){
 	.attr("fill","none")
 	.attr("stroke", color)
 	.attr("stroke-width",1)
-	.attr("opacity",0.2)
+	.attr("opacity",0.4)
 	.on("mouseover",function(){console.log([lineData[0],lineData[1]])})
 		
-//	.style("stroke-dasharray", ("20, 3"))
+		//	.style("stroke-dasharray", ("20, 3"))
 		var totalLength = path.node().getTotalLength();
-	if(totalLength>100){
-	var dashLength = 50	
-	}
-	else{
-	var dashLength = totalLength/20
-	}
+	//	if(totalLength>100){
+	//	var dashLength = 50	
+	//	}
+	//	else{
+	//	var dashLength = totalLength/20
+	//	}
 	path.attr("stroke-dasharray",totalLength + " " + totalLength)
 		.attr("stroke-dashoffset", totalLength)
 		.transition()
 		//.delay(colorIndex*500)
-	    .duration(2000)
+	    .duration(1500)
 	    .ease("linear")
 	    .attr("stroke-dashoffset", 0)
-		.attr("opacity",0.1)
+		.attr("opacity",0)
 		.transition()
-		.delay(2000)
+		.delay(1000)
 		.remove()
 
 }
-function drawDots(data){
-	//console.log(data)
-	for(var i in data){
-	//	console.log([i,data[i]])
-		for (var dots in data[i]){
-			//console.log(data[i][dots])
-			drawEach(data[i][dots])
-		}
-	}
-
+function filterByHour(data, hourstart, hourend){
+	data = table.filter(table.group(data, ["startminutes"]), function(list, minute) {
+		return (minute/60-4 > hourstart && minute/60 -4< hourend)
+	})
+	return data
 }
-
-function drawEach(data){
+function filterByWeekday(data){
+	data = table.filter(table.group(data, ["weekday"]), function(list, minute) {
+		return (minute > global.weekdayFilter[0] && minute < global.weekdayFilter[1])
+	})
+	return data
+}
+function drawDots(data){
 	var projection = d3.geo.mercator().scale(global.scale).center(global.center)
 	var dotMap = d3.select("#svg-1 svg").append("g").attr("class","scatterplot")
-	dotMap
-	//.data(data)
-	//.enter()
+	
+	dotMap.selectAll("circle")
+	.data(data)
+	.enter()
 	.append("circle")
-	.attr("cx",function(){
-		return projection([data[1],data[0]])[0]
-	})
-	.attr("cy",function(){
+	.attr("cx",function(d){
 		//console.log(d)
-		return projection([data[1],data[0]])[1]
+		return projection([parseFloat(d["longitude"]),parseFloat(d["latitude"])])[0]
+	})
+	.attr("cy",function(d){
+		//console.log(d)
+		return projection([parseFloat(d["longitude"]),parseFloat(d["latitude"])])[1]
 	})
 	.attr("r", 2)
 	.attr("fill","black")
@@ -687,7 +691,6 @@ function renderNycMap(data, column,svg,low,high,neighbors,neighborhoodDictionary
 					var test = "test"
 					tip.html(function(d){return tipText})
 					tip.show()
-					d3.select("#current-details").html("Adjacent Median Incomes:</br> Census block group "+currentZipcode+" has median household income of $"+currentIncome)
 					drawNeighborsGraph(companiesByZipcode, currentZipcode)
 					d3.select(this).attr("fill","red")
 				}
@@ -695,7 +698,6 @@ function renderNycMap(data, column,svg,low,high,neighbors,neighborhoodDictionary
 		})
 		.on('mouseout', function(d){
 			d3.select(this).attr("fill",global.mapFillColor)
-			d3.select("#current-details").html("")
 			tip.hide()
 			d3.selectAll("#svg-2 svg").remove()
 		})
@@ -715,7 +717,7 @@ function drawNeighborsGraph(data, id){
 			.attr("width",width)
 			.attr("height",height)
 			.append("g")
-			.attr("transform","translate(80,20)")
+			//.attr("transform","translate(80,20)")
 	var margin = 80
 	var neighborsMedians = []
 	var incomeScale = d3.scale.linear().domain([0,250000]).range([0,height-margin])

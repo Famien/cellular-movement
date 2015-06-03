@@ -42,9 +42,7 @@
 	<div id="scale"></div>
 	<div id = "header">
 			<div id = "title"></div>
-			<div id = "subtitle">
-				TODO: PUT SUBTITLE HERE
-			</div>
+
 			<div id="current-details"></div>			
 	</div>
 	
@@ -60,6 +58,26 @@
 	var overlap = city+"/boston_gender_minutes.json"
 	var neighbors = city+"/"+city+"_geoid_neighbor_hash.json"
 	var neighborhoods = city+"/"+city+"_neighborhoods.json"
+	
+	var global = {
+		usMapWidth:1500,
+		usMapHeight:1200,
+		max:200000,
+		maxIncome:250000,
+		gradientStart:"#fff",
+		gradientEnd:"#eee",
+		scale:4000000,
+		center:[-71.063,42.3562],
+		neighbors:null,
+		translate:[0,0],
+		translateScale:1,
+		mapFillColor:null,
+		minDifference:15,
+		city:city,
+		data:null,
+		histogramInterval:15,
+		weekdayFilter:[1,5]
+	}
 	</script>
 	
 	  <script src="proximity_disparity_streets.js"></script>
